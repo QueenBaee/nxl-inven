@@ -128,7 +128,7 @@ test('dashboard kpi calculations accurately reflect daily sales, month gross, an
     // Test Today's Items Sold Quantity: 2 + 1 = 3
     $itemsSoldToday = TransactionItem::whereHas('transaction', fn ($q) => $q->where('status', TransactionStatus::Completed)->whereDate('created_at', today()))
         ->sum('quantity');
-    expect($itemsSoldToday)->toBe(3);
+    expect((int) $itemsSoldToday)->toBe(3);
 
     // Test Owned Inventory Cost Valuation: 10 * 20,000 = 200,000 (Excludes consignment!)
     $ownedValuation = Product::where('type', ProductType::Regular)

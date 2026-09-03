@@ -11,8 +11,6 @@ use App\Enums\SettlementStatus;
 use App\Enums\StockMovementType;
 use App\Events\PayoutExecuted;
 use App\Events\StockOpnameApproved;
-use App\Exceptions\InsufficientStockException;
-use App\Exceptions\StockOpnameInProgressException;
 use App\Livewire\PosCart;
 use App\Models\ConsignmentSettlement;
 use App\Models\Product;
@@ -182,9 +180,9 @@ test('pos checkout rolls back completely and rejects sale when product is frozen
     $cart->setChannel(SalesChannel::Offline);
     $cart->setPaymentMethod(PaymentMethod::Cash);
 
-    expect(function () use ($cart) {
-        $cart->checkout();
-    })->toThrow(StockOpnameInProgressException::class);
+    $result = $cart->checkout();
+    expect($result)->toBeNull()
+        ->and($cart->errorMessage)->toContain('Active Audit');
 
     // Ensure zero side effects
     expect(Transaction::count())->toBe(0)
@@ -203,9 +201,9 @@ test('pos checkout rolls back completely when one item has insufficient stock', 
     $cart->addItem($productA->id, 2);
     $cart->addItem($productB->id, 3); // Requests 3, but only 1 available!
 
-    expect(function () use ($cart) {
-        $cart->checkout();
-    })->toThrow(InsufficientStockException::class);
+    $result = $cart->checkout();
+    expect($result)->toBeNull()
+        ->and($cart->errorMessage)->toContain("Insufficient stock for product '{$productB->name}'");
 
     // Ensure complete rollback: productA stock was NOT deducted
     expect($productA->fresh()->stock)->toBe(10)

@@ -113,4 +113,3 @@ test('all dashboard widgets mount successfully without exceptions', function () 
     Livewire::test(LowStockAlertWidget::class)->assertSuccessful();
     Livewire::test(RecentStockMovementsWidget::class)->assertSuccessful();
 });
-

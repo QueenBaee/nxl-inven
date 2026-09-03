@@ -14,10 +14,12 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\StockOpname;
 use App\Models\Transaction;
+use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Livewire\Component;
 
@@ -31,6 +33,8 @@ class PosCart extends Component
     /**
      * Search query for product catalog.
      */
+    public string $search = '';
+
     public string $searchQuery = '';
 
     /**
@@ -140,9 +144,11 @@ class PosCart extends Component
      */
     public function getCatalogProductsProperty(): Collection
     {
+        $searchTerm = trim($this->search !== '' ? $this->search : $this->searchQuery);
+
         return Product::query()
-            ->when($this->searchQuery !== '', function ($query) {
-                $term = "%{$this->searchQuery}%";
+            ->when($searchTerm !== '', function ($query) use ($searchTerm) {
+                $term = "%{$searchTerm}%";
                 $query->where(function ($q) use ($term) {
                     $q->where('name', 'like', $term)
                         ->orWhere('sku', 'like', $term);
@@ -330,14 +336,21 @@ class PosCart extends Component
      *
      * @throws InsufficientStockException|StockOpnameInProgressException|InvalidArgumentException
      */
-    public function checkout(): Transaction
+    public function checkout(): ?Transaction
     {
         $this->errorMessage = null;
         $this->successMessage = null;
 
         if (empty($this->items)) {
             $this->errorMessage = 'Cannot checkout an empty cart.';
-            throw new InvalidArgumentException('Cannot checkout an empty cart.');
+
+            Notification::make()
+                ->title('Transaksi Gagal')
+                ->body($this->errorMessage)
+                ->danger()
+                ->send();
+
+            return null;
         }
 
         $paymentMethodEnum = PaymentMethod::from($this->paymentMethod);
@@ -421,22 +434,47 @@ class PosCart extends Component
                 return $transaction;
             }, 5);
 
-            // Reset cart on successful checkout
-            $this->items = [];
+            // Send a Filament success notification containing the generated invoice number:
+            Notification::make()
+                ->title('Transaksi Berhasil')
+                ->body("Invoice #{$transaction->invoice_number}")
+                ->success()
+                ->send();
+
+            $this->successMessage = "Invoice #{$transaction->invoice_number}";
             $this->lastInvoiceNumber = $transaction->invoice_number;
             $this->lastTransactionId = $transaction->id;
-            $this->successMessage = "Transaksi berhasil! Invoice: {$transaction->invoice_number} (Total: Rp ".number_format((float) $transaction->total_amount, 2, ',', '.').')';
+            $this->errorMessage = null;
+            $this->items = [];
 
             return $transaction;
         } catch (InsufficientStockException $e) {
-            $this->errorMessage = "Insufficient stock for product '{$e->productName}'. Available: {$e->availableStock}, requested: {$e->requestedQuantity}.";
-            throw $e;
-        } catch (StockOpnameInProgressException $e) {
-            $this->errorMessage = "Stock mutations are frozen for product ID {$e->productId} due to in-progress stock opname session: {$e->sessionName}";
-            throw $e;
-        } catch (InvalidArgumentException $e) {
+            Notification::make()
+                ->title('Stok Tidak Cukup')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+
             $this->errorMessage = $e->getMessage();
-            throw $e;
+
+            return null;
+        } catch (\Throwable $e) {
+            Log::error('POS Checkout Failed: '.$e->getMessage(), [
+                'exception' => $e,
+                'items' => $this->items,
+                'payment_method' => $this->paymentMethod,
+                'channel' => $this->channel,
+            ]);
+
+            $this->errorMessage = 'Gagal memproses transaksi: '.$e->getMessage();
+
+            Notification::make()
+                ->title('Transaksi Gagal')
+                ->body($this->errorMessage)
+                ->danger()
+                ->send();
+
+            return null;
         }
     }
 
@@ -463,6 +501,8 @@ class PosCart extends Component
 
     public function render(): View
     {
-        return view('livewire.pos-cart');
+        return view('livewire.pos-cart', [
+            'products' => $this->catalogProducts,
+        ]);
     }
 }

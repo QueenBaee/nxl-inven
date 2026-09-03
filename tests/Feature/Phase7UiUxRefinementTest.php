@@ -4,8 +4,6 @@ use App\Actions\StockOpname\StartStockOpnameAction;
 use App\Enums\OpnameStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\SalesChannel;
-use App\Exceptions\InsufficientStockException;
-use App\Exceptions\StockOpnameInProgressException;
 use App\Livewire\PosCart;
 use App\Models\Product;
 use App\Models\StockOpname;
@@ -14,7 +12,6 @@ use App\Models\User;
 use App\Policies\TransactionPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
-use InvalidArgumentException;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -55,11 +52,9 @@ test('pos component allows adding, incrementing, decrementing, and removing item
 test('pos component prevents checkout on empty cart', function () {
     $cart = new PosCart;
 
-    expect(function () use ($cart) {
-        $cart->checkout();
-    })->toThrow(InvalidArgumentException::class);
-
-    expect($cart->errorMessage)->toBe('Cannot checkout an empty cart.');
+    $result = $cart->checkout();
+    expect($result)->toBeNull()
+        ->and($cart->errorMessage)->toBe('Cannot checkout an empty cart.');
 });
 
 test('pos component provides friendly feedback when stock is insufficient', function () {
@@ -71,11 +66,9 @@ test('pos component provides friendly feedback when stock is insufficient', func
     // Concurrently drop stock or request more
     $product->update(['stock' => 1]);
 
-    expect(function () use ($cart) {
-        $cart->checkout();
-    })->toThrow(InsufficientStockException::class);
-
-    expect($cart->errorMessage)->toContain("Insufficient stock for product '{$product->name}'");
+    $result = $cart->checkout();
+    expect($result)->toBeNull()
+        ->and($cart->errorMessage)->toContain("Insufficient stock for product '{$product->name}'");
 });
 
 test('pos component provides friendly feedback when product is frozen by stock opname', function () {
@@ -103,11 +96,9 @@ test('pos component provides friendly feedback when product is frozen by stock o
         ],
     ];
 
-    expect(function () use ($cart) {
-        $cart->checkout();
-    })->toThrow(StockOpnameInProgressException::class);
-
-    expect($cart->errorMessage)->toContain('Audit Toko Utama');
+    $result = $cart->checkout();
+    expect($result)->toBeNull()
+        ->and($cart->errorMessage)->toContain('Audit Toko Utama');
 });
 
 test('successful pos checkout clears cart and sets success message with invoice details', function () {

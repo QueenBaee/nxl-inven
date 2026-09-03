@@ -5,7 +5,6 @@ use App\Enums\ProductType;
 use App\Enums\SalesChannel;
 use App\Enums\StockMovementType;
 use App\Enums\TransactionStatus;
-use App\Exceptions\InsufficientStockException;
 use App\Livewire\PosCart;
 use App\Models\Product;
 use App\Models\StockMovement;
@@ -188,9 +187,9 @@ test('checkout throws InsufficientStockException and rolls back transaction when
     $cart = new PosCart;
     $cart->addItem($product->id, 5); // Requests 5, only 2 available
 
-    expect(function () use ($cart) {
-        $cart->checkout();
-    })->toThrow(InsufficientStockException::class, "Insufficient stock for product 'Limited Glove'. Available: 2, requested: 5.");
+    $result = $cart->checkout();
+    expect($result)->toBeNull()
+        ->and($cart->errorMessage)->toContain("Insufficient stock for product 'Limited Glove'");
 
     // Ensure complete rollback
     expect(Transaction::count())->toBe(0)
