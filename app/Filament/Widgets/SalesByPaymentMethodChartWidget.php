@@ -53,8 +53,11 @@ class SalesByPaymentMethodChartWidget extends ChartWidget
         ];
 
         foreach ($paymentData as $item) {
-            $enum = PaymentMethod::tryFrom($item->payment_method);
-            $labels[] = $enum ? $enum->getLabel() : ucfirst($item->payment_method);
+            $enum = $item->payment_method instanceof PaymentMethod
+                ? $item->payment_method
+                : PaymentMethod::tryFrom((string) $item->payment_method);
+
+            $labels[] = $enum ? $enum->getLabel() : (is_string($item->payment_method) ? ucfirst($item->payment_method) : '-');
             $values[] = (float) $item->total_sales;
         }
 

@@ -55,8 +55,11 @@ class SalesByChannelChartWidget extends ChartWidget
         ];
 
         foreach ($channelData as $item) {
-            $enum = SalesChannel::tryFrom($item->channel);
-            $labels[] = $enum ? $enum->getLabel() : ucfirst($item->channel);
+            $enum = $item->channel instanceof SalesChannel
+                ? $item->channel
+                : SalesChannel::tryFrom((string) $item->channel);
+
+            $labels[] = $enum ? $enum->getLabel() : (is_string($item->channel) ? ucfirst($item->channel) : '-');
             $values[] = (float) $item->total_sales;
         }
 
