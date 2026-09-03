@@ -6,7 +6,6 @@ use App\Actions\StockOpname\SubmitStockOpnameCountAction;
 use App\Enums\OpnameStatus;
 use App\Models\Product;
 use App\Models\StockOpname;
-use App\Models\StockOpnameItem;
 use App\Models\User;
 use App\Policies\StockOpnameItemPolicy;
 use App\Policies\StockOpnamePolicy;
@@ -176,7 +175,7 @@ test('staff and users cannot edit physical_qty after submission', function () {
         'physical_qty' => 10,
     ]);
 
-    $policy = new StockOpnameItemPolicy();
+    $policy = new StockOpnameItemPolicy;
 
     // Policy strictly forbids updates while submitted
     expect($policy->update($staff, $item))->toBeFalse()
@@ -273,7 +272,7 @@ test('owner can reopen counting, preserving physical quantities and unlocking st
         ->and($item->fresh()->physical_qty)->toBe(7); // Preserved physical qty
 
     // Staff can edit again
-    $policy = new StockOpnameItemPolicy();
+    $policy = new StockOpnameItemPolicy;
     expect($policy->update($staff, $item->fresh()))->toBeTrue();
 });
 
@@ -313,7 +312,7 @@ test('stock opname policy authorizes submitCount and reopenCount correctly', fun
         'created_by' => $owner->id,
     ]);
 
-    $policy = new StockOpnamePolicy();
+    $policy = new StockOpnamePolicy;
 
     // SubmitCount: Both staff and owner can submit when open
     expect($policy->submitCount($staff, $activeSession))->toBeTrue()
@@ -325,4 +324,3 @@ test('stock opname policy authorizes submitCount and reopenCount correctly', fun
         ->and($policy->reopenCount($staff, $submittedSession))->toBeFalse()
         ->and($policy->reopenCount($owner, $activeSession))->toBeFalse();
 });
-
